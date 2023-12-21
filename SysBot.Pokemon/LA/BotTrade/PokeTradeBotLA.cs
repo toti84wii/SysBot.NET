@@ -552,6 +552,7 @@ public class PokeTradeBotLA(PokeTradeHub<PA8> Hub, PokeBotState Config) : PokeRo
         var name = await SwitchConnection.PointerPeek(TradePartnerLA.MaxByteLengthStringObject, Offsets.LinkTradePartnerNamePointer, token).ConfigureAwait(false);
         var traderOffset = await SwitchConnection.PointerAll(Offsets.LinkTradePartnerTIDPointer, token).ConfigureAwait(false);
         var idbytes = await SwitchConnection.ReadBytesAbsoluteAsync(traderOffset + 0x04, 4, token).ConfigureAwait(false);
+
         return new TradePartnerLA(id, name, idbytes);
     }
 
@@ -713,36 +714,36 @@ public class PokeTradeBotLA(PokeTradeHub<PA8> Hub, PokeBotState Config) : PokeRo
             Hub.BotSync.Barrier.RemoveParticipant();
             Log($"Left the Barrier. Count: {Hub.BotSync.Barrier.ParticipantCount}");
         }
+    }
 
-        // based on https://github.com/Muchacho13Scripts/SysBot.NET/commit/f7879386f33bcdbd95c7a56e7add897273867106
-        // and https://github.com/berichan/SysBot.PLA/commit/84042d4716007dc6ff3100ad4be4a483d622ccf8
-        private async Task<bool> SetBoxPkmWithSwappedIDDetailsPLA(PA8 toSend, TradePartnerLA tradePartner, SAV8LA sav, CancellationToken token)
+    // based on https://github.com/Muchacho13Scripts/SysBot.NET/commit/f7879386f33bcdbd95c7a56e7add897273867106
+    // and https://github.com/berichan/SysBot.PLA/commit/84042d4716007dc6ff3100ad4be4a483d622ccf8
+    private async Task<bool> SetBoxPkmWithSwappedIDDetailsPLA(PA8 toSend, TradePartnerLA tradePartner, SAV8LA sav, CancellationToken token)
+    {
+        var cln = (PA8)toSend.Clone();
+        cln.OT_Gender = tradePartner.Gender;
+        cln.TrainerTID7 = uint.Parse(tradePartner.TID7);
+        cln.TrainerSID7 = uint.Parse(tradePartner.SID7);
+        cln.Language = tradePartner.Language;
+        cln.OT_Name = tradePartner.TrainerName;
+        cln.ClearNickname();
+
+        if (toSend.IsShiny)
+            cln.SetShiny();
+
+        cln.RefreshChecksum();
+
+        var tradela = new LegalityAnalysis(cln);
+        if (tradela.Valid)
         {
-            var cln = (PA8)toSend.Clone();
-            cln.OT_Gender = tradePartner.Gender;
-            cln.TrainerTID7 = uint.Parse(tradePartner.TID7);
-            cln.TrainerSID7 = uint.Parse(tradePartner.SID7);
-            cln.Language = tradePartner.Language;
-            cln.OT_Name = tradePartner.TrainerName;
-            cln.ClearNickname();
-
-            if (toSend.IsShiny)
-                cln.SetShiny();
-
-            cln.RefreshChecksum();
-
-            var tradela = new LegalityAnalysis(cln);
-            if (tradela.Valid)
-            {
-                Log($"Pokemon is valid, use trade partnerInfo");
-                await SetBoxPokemonAbsolute(BoxStartOffset, cln, token, sav).ConfigureAwait(false);
-            }
-            else
-            {
-                Log($"Pokemon not valid, do nothing to trade Pokemon");
-            }
-
-            return tradela.Valid;
+            Log($"Pokemon is valid, use trade partnerInfo");
+            await SetBoxPokemonAbsolute(BoxStartOffset, cln, token, sav).ConfigureAwait(false);
         }
+        else
+        {
+            Log($"Pokemon not valid, do nothing to trade Pokemon");
+        }
+
+        return tradela.Valid;
     }
 }
